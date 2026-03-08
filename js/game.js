@@ -33,9 +33,14 @@ let lastTime      = 0;
 let saveTimer     = 0;
 let aiEnabled     = true;
 let soundEnabled  = true;
-let speedMode     = 0;  // 0=normal 1=fast 2=turbo
+let speedMode     = 0;
 const SPEED_LABELS = ['NORMAL', 'FAST', 'TURBO'];
 const SPEED_MULTS  = [1, 3, 10];
+
+// ─── autonomous chatter timers ────────────────────────────────────────────────
+let randomSpeechTimer = 8000;    // first spontaneous line after 8s
+let sneezeTimer       = 50000;   // random sneeze event
+let spinTimer         = 80000;   // random excited spin
 
 // ─── audio (web audio api tones) ─────────────────────────────────────────────
 
@@ -153,6 +158,35 @@ function loop(ts) {
   // --- event scheduler ---
   scheduler.tick();
 
+  // --- autonomous random speech ----------------------------------------
+  randomSpeechTimer -= dt;
+  if (randomSpeechTimer <= 0) {
+    triggerRandomSpeech();
+    // next speech in 12-28s (shorter at higher intimacy)
+    const intimacyBonus = Math.floor(pet.intimacy / 200) * 2000;
+    randomSpeechTimer = 12000 + Math.random() * 16000 - intimacyBonus;
+    randomSpeechTimer = Math.max(6000, randomSpeechTimer);
+  }
+
+  // --- sneeze event -------------------------------------------------------
+  sneezeTimer -= dt;
+  if (sneezeTimer <= 0 && pet.state === PET_STATES.IDLE) {
+    renderer.triggerSneeze();
+    playTone(330, 0.04, 'sine');
+    setTimeout(() => playTone(660, 0.08, 'sine'), 120);
+    setTimeout(() => ui.showSpeech('Achoo! 🤧', 2500), 800);
+    sneezeTimer = 40000 + Math.random() * 60000;
+  }
+
+  // --- excited spin event -------------------------------------------------
+  spinTimer -= dt;
+  if (spinTimer <= 0 && pet.intimacy >= 250 &&
+      [PET_STATES.HAPPY, PET_STATES.EXCITED].includes(pet.state)) {
+    renderer.triggerSpin();
+    pet.jump = 0.8;
+    spinTimer = 50000 + Math.random() * 80000;
+  }
+
   // --- auto-save every 30s ---
   saveTimer += dt;
   if (saveTimer > 30000) {
@@ -163,19 +197,64 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
+// ─── autonomous random speech ─────────────────────────────────────────────────
+
+// Maps current pet state → most contextually appropriate speech banks
+const STATE_SPEECH_MAP = {
+  idle:      ['idle', 'idle', 'idle', 'play_request', 'fed_recently'],
+  happy:     ['happy', 'happy', 'excited'],
+  hungry:    ['hungry', 'hungry', 'begging'],
+  begging:   ['begging', 'hungry'],
+  eating:    ['eating', 'eating', 'happy'],
+  sleeping:  ['sleeping'],
+  playing:   ['playing', 'happy'],
+  cleaning:  ['cleaning', 'idle'],
+  walking:   ['idle', 'happy', 'play_request'],
+  excited:   ['excited', 'happy', 'happy'],
+  sad:       ['sad', 'sad'],
+  sick:      ['sick'],
+  lookaround:['idle', 'play_request'],
+  sneeze:    ['idle'],
+};
+
+function triggerRandomSpeech() {
+  // Don't overlap speech bubble
+  if (!document.getElementById('speech-bubble').classList.contains('hidden')) return;
+  // Don't talk while asleep (but occasionally mumble)
+  if (pet.state === PET_STATES.SLEEPING && Math.random() > 0.1) return;
+
+  const banks   = STATE_SPEECH_MAP[pet.state] || ['idle'];
+  const context = banks[Math.floor(Math.random() * banks.length)];
+  const line    = personality.speakFree(context, pet.intimacy, pet.name);
+  if (line) {
+    ui.showSpeech(line, 3500);
+    // tiny sound cue at higher intimacy
+    if (pet.intimacy >= 250 && soundEnabled && Math.random() < 0.4) {
+      playTone(550, 0.04, 'sine', 0.04);
+    }
+  }
+}
+
 // ─── state transitions ────────────────────────────────────────────────────────
 
 function onStateChange(from, to) {
-  const line = personality.speak(to, pet.intimacy, pet.name);
-  if (line) ui.showSpeech(line);
+  // Only show speech on meaningful transitions (not just idle oscillation)
+  const important = [
+    PET_STATES.EATING, PET_STATES.SLEEPING, PET_STATES.HUNGRY,
+    PET_STATES.SAD, PET_STATES.BEGGING, PET_STATES.SICK, PET_STATES.HAPPY,
+  ];
+  if (important.includes(to)) {
+    const line = personality.speakFree(to, pet.intimacy, pet.name);
+    if (line) ui.showSpeech(line, 3500);
+  }
 
-  // flash colors
-  if (to === PET_STATES.EATING)   renderer.flash('rgba(163,230,53,0.2)', 300);
-  if (to === PET_STATES.HAPPY)    renderer.flash('rgba(192,132,252,0.2)', 300);
-  if (to === PET_STATES.SLEEPING) renderer.flash('rgba(99,102,241,0.2)', 300);
-  if (to === PET_STATES.SAD)      renderer.flash('rgba(239,68,68,0.15)', 300);
-  if (to === PET_STATES.BEGGING)  { renderer.flash('rgba(239,68,68,0.2)', 400); ui.deviceShake(); }
-  if (to === PET_STATES.SICK)     renderer.flash('rgba(250,204,21,0.1)', 300);
+  if (to === PET_STATES.EATING)   renderer.flash('rgba(163,230,53,0.18)');
+  if (to === PET_STATES.HAPPY)    renderer.flash('rgba(192,132,252,0.18)');
+  if (to === PET_STATES.SLEEPING) renderer.flash('rgba(99,102,241,0.18)');
+  if (to === PET_STATES.SAD)      renderer.flash('rgba(239,68,68,0.14)');
+  if (to === PET_STATES.BEGGING)  { renderer.flash('rgba(239,68,68,0.2)'); ui.deviceShake(); }
+  if (to === PET_STATES.SICK)     renderer.flash('rgba(250,204,21,0.1)');
+  if (to === PET_STATES.EXCITED)  { renderer.triggerSpin(); pet.jump = 0.6; }
 }
 
 function onIntimacyTierUp() {
@@ -206,7 +285,7 @@ function wireButtons() {
     if (result.ok) {
       playFeedSound();
       ui.toast_(result.msg);
-      const speech = personality.speak('eating', pet.intimacy, pet.name);
+      const speech = personality.speakFree('eating', pet.intimacy, pet.name);
       if (speech) ui.showSpeech(speech);
     } else {
       playErrorSound();
@@ -233,7 +312,7 @@ function wireButtons() {
     if (result.ok) {
       playCleanSound();
       ui.toast_(result.msg);
-      const speech = personality.speak('cleaning', pet.intimacy, pet.name);
+      const speech = personality.speakFree('cleaning', pet.intimacy, pet.name);
       if (speech) ui.showSpeech(speech);
     } else {
       playErrorSound();

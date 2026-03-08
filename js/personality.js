@@ -177,38 +177,44 @@ const CONTEXT_LINES = {
 export class PersonalityEngine {
   constructor() {
     this._playerName = 'you';
-    this._useAI      = false;
-    this._apiKey     = '';
-    this._lastSpoke  = 0;
-    this._cooldown   = 4000;  // min ms between messages
+    this._useAI       = false;
+    this._apiKey      = '';
+    this._lastSpoke   = 0;
+    this._cooldown    = 3500;  // min ms between player-triggered messages
+    this._lastFree    = 0;
+    this._freeCooldown= 1500;  // min ms between autonomous messages
   }
 
   setPlayerName(name) { this._playerName = name || 'you'; }
   enableAI(apiKey)    { this._useAI = !!apiKey; this._apiKey = apiKey; }
   disableAI()         { this._useAI = false; }
 
-  /** Get a speech string for a given context and intimacy value */
+  /** Core line selector — no cooldown enforcement */
+  _line(context, intimacy, petName) {
+    const tierIdx = this._tierIndex(intimacy);
+    const bank    = SPEECH[context];
+    if (!bank) return this._fallback(context, petName);
+    const tierBank = bank[Math.min(tierIdx, bank.length - 1)];
+    let line = tierBank[Math.floor(Math.random() * tierBank.length)];
+    if (tierIdx >= 4) line = line.replace(/you/g, this._playerName);
+    return line;
+  }
+
+  /** Player-action triggered speech — respects cooldown */
   speak(context, intimacy = 0, petName = 'Ari') {
     const now = Date.now();
     if (now - this._lastSpoke < this._cooldown) return null;
     this._lastSpoke = now;
+    this._lastFree  = now;
+    return this._line(context, intimacy, petName);
+  }
 
-    const tierIdx = this._tierIndex(intimacy);
-    const bank    = SPEECH[context];
-
-    if (!bank) {
-      return this._fallback(context, petName);
-    }
-
-    const tierBank = bank[Math.min(tierIdx, bank.length - 1)];
-    let line       = tierBank[Math.floor(Math.random() * tierBank.length)];
-
-    // personalize at higher intimacy
-    if (tierIdx >= 4) {
-      line = line.replace(/you/g, this._playerName);
-    }
-
-    return line;
+  /** Autonomous/spontaneous speech — shorter cooldown */
+  speakFree(context, intimacy = 0, petName = 'Ari') {
+    const now = Date.now();
+    if (now - this._lastFree < this._freeCooldown) return null;
+    this._lastFree = now;
+    return this._line(context, intimacy, petName);
   }
 
   /** Speak a special context line (one-shot, no cooldown) */
@@ -224,7 +230,7 @@ export class PersonalityEngine {
       night:     'sleeping',
       play_hint: 'play_request',
     };
-    return this.speak(map[event] || 'idle', intimacy);
+    return this.speakFree(map[event] || 'idle', intimacy);
   }
 
   // ─── optional AI enhancement ──────────────────────────────────────────────────
