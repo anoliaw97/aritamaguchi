@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a0a2e">
+  <meta name="description" content="Aritamaguchi - A state-of-the-art virtual pet system">
+  <title>Aritamaguchi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Main Tamagotchi Device -->
+    <div id="device" class="tamagotchi-device">
+
+      <!-- Device Header -->
+      <div id="device-header">
+        <div class="header-left">
+          <div class="led-dot" id="led-dot"></div>
+        </div>
+        <div class="device-title">ARITAMAGUCHI</div>
+        <div class="header-right">
+          <div class="speaker-grille">
+            <div class="grille-hole"></div>
+            <div class="grille-hole"></div>
+            <div class="grille-hole"></div>
+            <div class="grille-hole"></div>
+            <div class="grille-hole"></div>
+            <div class="grille-hole"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen Bezel -->
+      <div id="screen-bezel">
+        <div id="screen-inner">
+          <canvas id="game-canvas" width="200" height="160"></canvas>
+          <!-- Speech bubble overlay -->
+          <div id="speech-bubble" class="hidden">
+            <div id="speech-text"></div>
+            <div class="bubble-tail"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Bars -->
+      <div id="status-bars">
+        <div class="stat-row">
+          <span class="stat-icon" title="Hunger">🍖</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" id="bar-hunger"></div>
+            </div>
+          </div>
+          <span class="stat-val" id="val-hunger">100</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon" title="Happiness">💜</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill happiness" id="bar-happy"></div>
+            </div>
+          </div>
+          <span class="stat-val" id="val-happy">100</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon" title="Cleanliness">✨</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill cleanliness" id="bar-clean"></div>
+            </div>
+          </div>
+          <span class="stat-val" id="val-clean">100</span>
+        </div>
+        <div class="stat-row intimacy-row">
+          <span class="stat-icon" title="Affection">🌟</span>
+          <div class="stat-bar-wrap">
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill intimacy" id="bar-intimacy"></div>
+            </div>
+            <span class="intimacy-label" id="intimacy-label">AWKWARD</span>
+          </div>
+          <span class="stat-val" id="val-intimacy">0</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div id="action-buttons">
+        <button id="btn-feed" class="action-btn" aria-label="Feed">
+          <span class="btn-icon">🍖</span>
+          <span class="btn-label">FEED</span>
+        </button>
+        <button id="btn-play" class="action-btn" aria-label="Play">
+          <span class="btn-icon">🎮</span>
+          <span class="btn-label">PLAY</span>
+        </button>
+        <button id="btn-clean" class="action-btn" aria-label="Clean">
+          <span class="btn-icon">🛁</span>
+          <span class="btn-label">CLEAN</span>
+        </button>
+        <button id="btn-menu" class="action-btn" aria-label="Menu">
+          <span class="btn-icon">☰</span>
+          <span class="btn-label">MENU</span>
+        </button>
+      </div>
+
+      <!-- D-Pad / Nav Buttons -->
+      <div id="device-footer">
+        <div class="dpad-container">
+          <button class="dpad-btn" id="dpad-left" aria-label="Left">◀</button>
+          <button class="dpad-btn dpad-center" id="dpad-select" aria-label="Select">●</button>
+          <button class="dpad-btn" id="dpad-right" aria-label="Right">▶</button>
+        </div>
+        <div class="device-brand">♦ v1.0 ♦</div>
+      </div>
+
+    </div><!-- /device -->
+
+    <!-- Info / Stats Panel -->
+    <div id="info-panel" class="overlay-panel hidden" role="dialog" aria-label="Pet Stats">
+      <div class="panel-header">
+        <span>✦ PET STATS ✦</span>
+        <button class="panel-close" id="close-info" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-body" id="info-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Name</span>
+            <span class="info-val" id="info-name">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Age</span>
+            <span class="info-val" id="info-age">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Stage</span>
+            <span class="info-val" id="info-stage">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Bond</span>
+            <span class="info-val" id="info-bond">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Times Fed</span>
+            <span class="info-val" id="info-fed">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Times Played</span>
+            <span class="info-val" id="info-played">-</span>
+          </div>
+          <div class="info-item full-width">
+            <span class="info-label">Current Mood</span>
+            <span class="info-val" id="info-mood">-</span>
+          </div>
+          <div class="info-item full-width">
+            <span class="info-label">Last Action</span>
+            <span class="info-val" id="info-action">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu Panel -->
+    <div id="menu-panel" class="overlay-panel hidden" role="dialog" aria-label="Menu">
+      <div class="panel-header">
+        <span>✦ MENU ✦</span>
+        <button class="panel-close" id="close-menu" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="menu-list">
+          <button class="menu-item" id="menu-stats">📊 Pet Stats</button>
+          <button class="menu-item" id="menu-rename">✏️ Rename Pet</button>
+          <button class="menu-item" id="menu-ai-toggle">🤖 AI Speech: <span id="ai-status">ON</span></button>
+          <button class="menu-item" id="menu-sound">🔊 Sound: <span id="sound-status">ON</span></button>
+          <button class="menu-item" id="menu-speed">⚡ Speed: <span id="speed-status">NORMAL</span></button>
+          <button class="menu-item danger" id="menu-reset">💀 Reset Pet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Name Input Modal -->
+    <div id="name-modal" class="overlay-panel hidden" role="dialog" aria-label="Name your pet">
+      <div class="panel-header">
+        <span>✦ NAME YOUR PET ✦</span>
+      </div>
+      <div class="panel-body">
+        <p class="modal-hint">Give your new companion a name!</p>
+        <input type="text" id="pet-name-input" class="name-input" maxlength="10" placeholder="Enter name..." autocomplete="off">
+        <button id="name-confirm" class="confirm-btn">CONFIRM ✓</button>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+      <span id="toast-text"></span>
+    </div>
+
+    <!-- Mini Game Overlay -->
+    <div id="minigame-overlay" class="overlay-panel hidden" role="dialog" aria-label="Mini Game">
+      <div class="panel-header">
+        <span id="minigame-title">✦ MINI GAME ✦</span>
+        <button class="panel-close" id="close-minigame" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-body">
+        <canvas id="minigame-canvas" width="200" height="140"></canvas>
+        <div id="minigame-controls">
+          <button id="mg-btn-left" class="mg-btn">◀</button>
+          <button id="mg-btn-action" class="mg-btn mg-action">●</button>
+          <button id="mg-btn-right" class="mg-btn">▶</button>
+        </div>
+        <div id="minigame-score-display">Score: <span id="mg-score">0</span></div>
+      </div>
+    </div>
+
+  </div><!-- /app -->
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
