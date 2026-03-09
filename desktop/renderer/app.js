@@ -82,8 +82,7 @@
     if (!state) return;
 
     // Shadow (only on floor)
-    const sz = [40, 52, 64, 76, 90, 100, 112][Math.min(state.stage ?? 1, 6)];
-    drawShadow(ctx, W, H, state.surface, sz);
+    drawShadow(ctx, W, H, state.surface);
 
     // Pet sprite
     drawFrame(ctx, W, H, state);
@@ -137,43 +136,59 @@
   }
 
   function drawSpeechBubble(ctx, W, H, text) {
-    const bubbleW = Math.min(W - 16, text.length * 7 + 16);
-    const bubbleH = 22;
+    // Fade out in last 2s
+    const remaining = messageTimer - Date.now();
+    const fadeAlpha = remaining < 2000 ? remaining / 2000 : 1;
+
+    const maxW    = W - 10;
+    const charPx  = 6.5;
+    const lineMax = Math.floor(maxW / charPx);
+    // word-wrap
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if ((cur + w).length > lineMax) { if (cur) lines.push(cur.trim()); cur = ''; }
+      cur += w + ' ';
+    }
+    if (cur.trim()) lines.push(cur.trim());
+
+    const lineH   = 11;
+    const bubbleW = Math.min(maxW, Math.max(...lines.map(l => l.length)) * charPx + 12);
+    const bubbleH = lines.length * lineH + 8;
     const bx      = (W - bubbleW) / 2;
-    const by      = H * 0.08;
+    const by      = 4;
 
     ctx.save();
-    ctx.globalAlpha = 0.92;
+    ctx.globalAlpha = 0.92 * fadeAlpha;
 
-    // bubble background
     ctx.fillStyle   = '#f3e8ff';
     ctx.strokeStyle = '#7c3aed';
     ctx.lineWidth   = 1.5;
     rr(ctx, bx, by, bubbleW, bubbleH, 6);
     ctx.fill(); ctx.stroke();
 
-    // tail pointing down toward pet
+    // tail
     ctx.beginPath();
     ctx.moveTo(W / 2 - 5, by + bubbleH);
     ctx.lineTo(W / 2 + 5, by + bubbleH);
     ctx.lineTo(W / 2,     by + bubbleH + 7);
     ctx.closePath();
-    ctx.fillStyle = '#f3e8ff';
-    ctx.fill();
-    ctx.strokeStyle = '#7c3aed';
-    ctx.lineWidth   = 1;
-    ctx.stroke();
+    ctx.fillStyle = '#f3e8ff'; ctx.fill();
+    ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1; ctx.stroke();
 
-    // text
-    ctx.font         = '8px "monospace"';
+    ctx.font         = '7px monospace';
     ctx.fillStyle    = '#1e1b4b';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.globalAlpha  = 1;
-    ctx.fillText(text, W / 2, by + bubbleH / 2, bubbleW - 8);
+    ctx.globalAlpha  = fadeAlpha;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, by + 8 + i * lineH);
+    });
 
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha  = 1;
     ctx.restore();
   }
 
@@ -296,9 +311,9 @@
     render(state);
   });
 
-  // ── Listen for message events from main ───────────────────────────────────
+  // ── Listen for message events from main (includes Groq speech) ───────────
   window.electronAPI.onMessage((text) => {
-    showMessage(text, 2500);
+    showMessage(text, 8000);
   });
 
   // ── Initial frame ─────────────────────────────────────────────────────────

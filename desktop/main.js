@@ -41,8 +41,8 @@ const WIN_H = 160;
 
 // ── Physics constants ─────────────────────────────────────────────────────────
 const GRAVITY    = 0.5;   // px / frame²
-const WALK_SPD   = 2.0;   // px / frame  (floor / ceiling)
-const CLIMB_SPD  = 1.6;   // px / frame  (walls)
+const WALK_SPD   = 0.6;   // px / frame  (floor / ceiling)
+const CLIMB_SPD  = 0.5;   // px / frame  (walls)
 const BOUNCE_VY  = -6;    // px / frame  (jump / throw bounce)
 const THROW_MULT = 0.18;  // drag velocity scale on release
 const TICK_MS    = 16;    // ~60 fps physics
@@ -158,9 +158,93 @@ const pet = {
   // Flash / evolving overlay
   flashAlpha:  0,
   flashColor:  '#ffffff',
+  // Groq AI appearance + behavior
+  groqState: {
+    hairColor:      '#FF9EC4',
+    dressColor:     '#6CA8FF',
+    mood:           'neutral',
+    speech:         null,
+    behaviorBias:   'normal',
+    walkSpeedMult:  1.0,
+  },
 };
 
 function rng(a, b) { return a + Math.random() * (b - a); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROQ AI INTEGRATION
+// ─────────────────────────────────────────────────────────────────────────────
+let groqApiKey = '';
+let groqInterval = null;
+
+function loadGroqKey() {
+  try {
+    const p = path.join(app.getPath('userData'), 'groq.json');
+    if (fs.existsSync(p)) {
+      const cfg = JSON.parse(fs.readFileSync(p, 'utf8'));
+      groqApiKey = cfg.key || '';
+    }
+  } catch {}
+}
+
+function saveGroqKey(key) {
+  try {
+    const p = path.join(app.getPath('userData'), 'groq.json');
+    fs.writeFileSync(p, JSON.stringify({ key }));
+  } catch {}
+}
+
+async function callGroq() {
+  if (!groqApiKey) return;
+  const stageNames = ['EGG','BABY I','BABY II','ROOKIE','CHAMPION','ULTIMATE','MEGA'];
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+  const userMsg =
+    `Pet: stage=${stageNames[pet.stage]}, hunger=${pet.hunger}/4, strength=${pet.strength}/4, ` +
+    `mood=${pet.groqState.mood}, time=${timeOfDay}, sick=${pet.sick}. ` +
+    `Respond ONLY with valid JSON: {"hairColor":"#hex","dressColor":"#hex",` +
+    `"mood":"playful|tired|happy|curious|mischievous|calm|neutral",` +
+    `"speech":"short phrase under 35 chars or null","behaviorBias":"normal|walk_more|idle_more|climb_more",` +
+    `"walkSpeedMult":0.8}`;
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: 'You control a chibi anime girl desktop pet. Respond ONLY with valid JSON. No markdown, no explanation, just JSON.' },
+          { role: 'user',   content: userMsg },
+        ],
+        max_tokens: 150,
+        temperature: 0.85,
+      }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return;
+    const p2 = JSON.parse(m[0]);
+    const hexRe = /^#[0-9a-fA-F]{6}$/;
+    if (p2.hairColor  && hexRe.test(p2.hairColor))  pet.groqState.hairColor  = p2.hairColor;
+    if (p2.dressColor && hexRe.test(p2.dressColor)) pet.groqState.dressColor = p2.dressColor;
+    if (p2.mood)         pet.groqState.mood         = String(p2.mood).slice(0, 20);
+    if (p2.behaviorBias) pet.groqState.behaviorBias = String(p2.behaviorBias).slice(0, 20);
+    if (typeof p2.walkSpeedMult === 'number')
+      pet.groqState.walkSpeedMult = Math.max(0.3, Math.min(1.5, p2.walkSpeedMult));
+    if (p2.speech && typeof p2.speech === 'string' && p2.speech !== 'null') {
+      pet.groqState.speech = p2.speech.slice(0, 40);
+      sendMessage(pet.groqState.speech);
+    }
+  } catch { /* silent — keep previous groqState */ }
+}
+
+function startGroqLoop() {
+  // Initial call after 5s (let window load first)
+  setTimeout(callGroq, 5000);
+  groqInterval = setInterval(callGroq, 3 * 60 * 1000);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAVE / LOAD
@@ -818,6 +902,7 @@ function setupIPC() {
     setPetState('being_petted', 1500);
     flash('#ff88cc', 0.55);
     sendMessage('( ˘ω˘ )  *purrs*');
+    setTimeout(callGroq, 2000); // ask Groq how she feels after being petted
   });
 
   // VPet toolbar quick actions
@@ -871,6 +956,8 @@ function buildDrawState() {
     // Flash overlay
     flashAlpha:  pet.flashAlpha,
     flashColor:  pet.flashColor,
+    // Groq AI state
+    groqState:   pet.groqState,
   };
 }
 
@@ -925,10 +1012,14 @@ app.whenReady().then(() => {
 
   initBounds();
   loadPet();
+  // Load Groq key from userData/groq.json
+  // To set your key: create %APPDATA%\Electron\groq.json with {"key":"your-groq-key-here"}
+  loadGroqKey();
   setupIPC();
   createWindow();
   createTray();
   startMainLoop();
+  startGroqLoop();
 
   // macOS: re-create window if dock icon clicked
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
