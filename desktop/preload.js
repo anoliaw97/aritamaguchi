@@ -41,4 +41,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Get the current draw state once (used for first frame before loop starts)
   getInitState: () => ipcRenderer.invoke('get-init-state'),
+
+  // ── Groq API key prompt ──────────────────────────────────────────────────
+  saveGroqKey:  (key) => ipcRenderer.send('save-groq-key', { key }),
+  openExternal: (url) => ipcRenderer.send('open-external', { url }),
 });

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aritamaguchi — Groq API Key</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0d2a;
+      color: #e0d7ff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      user-select: none;
+    }
+
+    .avatar {
+      font-size: 42px;
+      margin-bottom: 12px;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #c4b5fd;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    p {
+      font-size: 11px;
+      color: #a78bfa;
+      text-align: center;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    p a {
+      color: #818cf8;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    label {
+      font-size: 10px;
+      color: #7c6fcd;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 5px;
+      align-self: flex-start;
+      width: 100%;
+    }
+
+    .input-wrap {
+      position: relative;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    input {
+      width: 100%;
+      padding: 9px 36px 9px 12px;
+      border-radius: 8px;
+      border: 1.5px solid #3b2d7a;
+      background: #1a1640;
+      color: #e0d7ff;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #7c3aed; }
+    input::placeholder { color: #4b3a8a; }
+
+    .toggle-vis {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #7c6fcd;
+      font-size: 14px;
+      user-select: none;
+    }
+
+    button.primary {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #7c3aed;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button.primary:hover  { background: #6d28d9; }
+    button.primary:active { transform: scale(0.98); }
+    button.primary:disabled { background: #3b2d7a; color: #6b5fa0; cursor: not-allowed; }
+
+    .skip {
+      margin-top: 10px;
+      font-size: 10px;
+      color: #4b3a8a;
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: center;
+    }
+    .skip:hover { color: #7c6fcd; }
+
+    .error {
+      font-size: 10px;
+      color: #f87171;
+      margin-top: -8px;
+      margin-bottom: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="avatar">👧</div>
+  <h2>Connect Groq AI</h2>
+  <p>
+    Your anime girl needs a Groq API key to evolve her<br>
+    personality, change her look, and chat with you!<br>
+    <a id="open-groq">Get a free key at console.groq.com</a>
+  </p>
+
+  <label for="key-input">Groq API Key</label>
+  <div class="input-wrap">
+    <input id="key-input" type="password" placeholder="gsk_..." autocomplete="off" spellcheck="false" />
+    <span class="toggle-vis" id="toggle-vis" title="Show/hide key">👁</span>
+  </div>
+  <div class="error" id="error-msg">Please enter a valid key (starts with gsk_)</div>
+
+  <button class="primary" id="save-btn">Save & Start</button>
+  <button class="skip" id="skip-btn">Skip — I'll add it later</button>
+
+  <script>
+    const input   = document.getElementById('key-input');
+    const saveBtn = document.getElementById('save-btn');
+    const skipBtn = document.getElementById('skip-btn');
+    const errMsg  = document.getElementById('error-msg');
+    const toggle  = document.getElementById('toggle-vis');
+
+    toggle.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    document.getElementById('open-groq').addEventListener('click', () => {
+      window.electronAPI.openExternal('https://console.groq.com');
+    });
+
+    input.addEventListener('input', () => {
+      errMsg.style.display = 'none';
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveBtn.click();
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const key = input.value.trim();
+      if (!key || !key.startsWith('gsk_')) {
+        errMsg.style.display = 'block';
+        input.focus();
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      window.electronAPI.saveGroqKey(key);
+    });
+
+    skipBtn.addEventListener('click', () => {
+      window.electronAPI.saveGroqKey('__skip__');
+    });
+
+    input.focus();
+  </script>
+</body>
+</html>

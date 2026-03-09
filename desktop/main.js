@@ -241,9 +241,33 @@ async function callGroq() {
 }
 
 function startGroqLoop() {
-  // Initial call after 5s (let window load first)
-  setTimeout(callGroq, 5000);
+  if (groqInterval) return; // already running
+  setTimeout(callGroq, 1000);
   groqInterval = setInterval(callGroq, 3 * 60 * 1000);
+}
+
+// ── Key prompt window ──────────────────────────────────────────────────────
+let keyWin = null;
+
+function openKeyPrompt() {
+  if (keyWin && !keyWin.isDestroyed()) { keyWin.focus(); return; }
+  keyWin = new BrowserWindow({
+    width: 320,
+    height: 380,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    title: 'Aritamaguchi — Groq API Key',
+    backgroundColor: '#0f0d2a',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  keyWin.setMenuBarVisibility(false);
+  keyWin.loadFile(path.join(__dirname, 'renderer', 'key-prompt.html'));
+  keyWin.on('closed', () => { keyWin = null; });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -817,6 +841,9 @@ function rebuildTrayMenu() {
       { label: '⚡ Turbo (20×)', click: () => { pet.speedMult = 20; } },
     ]},
     { type: 'separator' },
+    { label: `🤖 Groq AI: ${groqApiKey ? 'Connected ✓' : 'Not set'}`, enabled: false },
+    { label: '🔑 Set Groq API Key', click: () => openKeyPrompt() },
+    { type: 'separator' },
     { label: '🔄 Reset Pet', click: () => {
       Object.assign(pet, {
         stage: EVO.BABY1, form: 'koromon', formName: 'Koromon', formColor: '#ff9999',
@@ -918,6 +945,23 @@ function setupIPC() {
 
   // Renderer asks for initial state
   ipcMain.handle('get-init-state', () => buildDrawState());
+
+  // Groq key prompt: save key and close window
+  ipcMain.on('save-groq-key', (_, { key }) => {
+    if (key && key !== '__skip__') {
+      saveGroqKey(key);
+      groqApiKey = key;
+      // Start loop now that we have a key
+      startGroqLoop();
+    }
+    if (keyWin && !keyWin.isDestroyed()) keyWin.close();
+    rebuildTrayMenu();
+  });
+
+  // Open external URL (used by key prompt to open console.groq.com)
+  ipcMain.on('open-external', (_, { url }) => {
+    shell.openExternal(url);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1012,14 +1056,17 @@ app.whenReady().then(() => {
 
   initBounds();
   loadPet();
-  // Load Groq key from userData/groq.json
-  // To set your key: create %APPDATA%\Electron\groq.json with {"key":"your-groq-key-here"}
   loadGroqKey();
   setupIPC();
   createWindow();
   createTray();
   startMainLoop();
-  startGroqLoop();
+  if (groqApiKey) {
+    startGroqLoop();
+  } else {
+    // No key found — open the setup prompt after window loads
+    setTimeout(openKeyPrompt, 1500);
+  }
 
   // macOS: re-create window if dock icon clicked
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
