@@ -1,0 +1,28 @@
+/* Completely transparent window shell — only the canvas matters */
+* {
+  margin:  0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width:            160px;
+  height:           160px;
+  background:       transparent !important;
+  overflow:         hidden;
+  -webkit-user-select: none;
+  user-select:      none;
+}
+
+#pet-canvas {
+  display:          block;
+  width:            160px;
+  height:           160px;
+  background:       transparent;
+  cursor:           grab;
+  image-rendering:  pixelated;
+}
+
+#pet-canvas:active {
+  cursor: grabbing;
+}

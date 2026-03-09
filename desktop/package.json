@@ -1,0 +1,20 @@
+{
+  "name": "aritamaguchi-desktop",
+  "version": "1.0.0",
+  "description": "Aritamaguchi — Digimon desktop pet that wanders your screen",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start":       "electron .",
+    "icons":       "node scripts/generate-icons.js",
+    "prebuild":    "node scripts/generate-icons.js",
+    "build":       "electron-builder",
+    "build:win":   "electron-builder --win",
+    "build:mac":   "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron":         "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}
